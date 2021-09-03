@@ -1,0 +1,19 @@
+#Get the list of local admins
+$localadminlist = Get-LocalGroupMember Administrators
+
+#Regex to get the user account
+$regex = "(?<=\\).\S*"
+
+#Loop through each line and return the local admins, excluding those you need to stay as admin
+$foreach = foreach($line in [regex]::matches($localadminlist,$regex).Value)  { 
+if ($line -ne "Administrator" -and $line -ne "tempadmin" -and $line -ne "Domain" -and $line -ne "deyuser" ) {
+	$line
+}  }
+
+
+#Output the foreach into a text file
+$foreach | Out-File -FilePath C:\output.txt
+
+
+#Loop through the text file and remove the users from the local admin group
+$foreach = foreach($item in Get-Content c:\output.txt) {Remove-LocalGroupMember -Group "Administrators" -Member $item}
