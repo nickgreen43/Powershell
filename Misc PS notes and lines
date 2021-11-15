@@ -1,0 +1,60 @@
+Get last logon date for user or computer - powershell domain controller
+
+First run   import-module ActiveDirectory
+
+#Get last logon date for Computer:
+Get-ADComputer -Filter * -Properties *  | Sort LastLogonDate | Export-CSV -NoType "C:\computer-lastlogondates.csv"
+
+------------
+
+#Get last logon date for User:
+Get-ADUser -Filter * -SearchBase "DC=deydistributing,DC=com" -ResultPageSize 0 -Prop CN,lastLogonTimestamp | Select CN,@{n="lastLogonDate";e={[datetime]::FromFileTime($_.lastLogonTimestamp)}} | Export-CSV -NoType "C:\lastlogondates.csv"
+
+------------
+
+#Disable old computers:
+
+#Variable used to filter for any computers that have not been logged onto for x amount of days or more
+$stale = (Get-Date).AddDays(-213) # means 213 days since last logon, can be changed to any number.
+
+#List out the $stale accounts
+Get-ADComputer -Property Name,lastLogonDate -Filter {lastLogonDate -lt $stale} | FT Name,lastLogonDate
+
+#Disable the $stale accounts
+Get-ADComputer -Property Name,lastLogonDate -Filter {lastLogonDate -lt $stale} | Set-ADComputer -Enabled $false
+
+#Find computers with a blank lastLogonDate and disable them
+Get-ADComputer -Filter * -Properties LastLogonDate | ?{$_.LastLogonDate -eq $null} |
+Set-ADComputer -Enabled $false
+
+
+
+Setup allowing remote powershell commands on computer
+
+In the PCs command prompt:
+	1. Run winrm invoke Restore winrm/Config
+	2. Run winrm quickconfig
+
+To disable
+PS as admin
+PS> Stop-Service winrm
+PS> Set-Service -Name winrm -StartupType Disabled
+
+Prepare and Execute remote powershell commands 
+
+$s = New-PSSession -ComputerName "you_computer_name" -Credential(Get-Credential)
+Invoke-Command -Session $s -ScriptBlock {Get-LocalGroupMember -Name 'Administrators'} etc. 
+
+
+
+Get remote server storage space / free space in gb
+Get-WmiObject -Class win32_logicalDisk -ComputerName   dd-docs, dd-florence   | Select-Object pscomputername, deviceid, {$_.freespace /1gb}, {$_.size /1gb}
+
+
+Get list of users with PasswordNeverExpires=true and the groups they are part of
+#Get list of users
+get-aduser -filter * -properties Name, PasswordNeverExpires | where { $_.passwordNeverExpires -eq "true" } | where {$_.enabled -eq "true"} 
+#Loop through each user in the list of users and get the groups they are part of
+foreach ($user in $users) { $usr=Get-ADUser -Identity $user.SamAccountName -Propertie
+s *; $GroupMembership= ($usr.memberof | % { (Get-AdGroup $_).Name;}) -join ';'; $usr.SamAccountName + ':' + $GroupMember
+ship}
